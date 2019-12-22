@@ -61,6 +61,9 @@ namespace F_test
 			std::vector<cv::KeyPoint>& keypoints,
 			cv::OutputArray descriptors);
 
+		void detect(cv::InputArray image, std::vector<cv::KeyPoint>& keypoints, cv::InputArray mask);
+		void compute(cv::InputArray image, std::vector<cv::KeyPoint>& keypoints, cv::OutputArray descriptors);
+
 		int inline GetLevels()
 		{
 			return nlevels;
@@ -96,11 +99,11 @@ namespace F_test
 
 	protected:
 		void ComputePyramid(cv::Mat image);
-		// With mask : JeenQ Lee
+		// With mask
 		void ComputePyramid(cv::Mat image, cv::Mat mask, std::vector<cv::Mat>& masks);
 
 		void ComputeKeyPointsOctTree(std::vector<std::vector<cv::KeyPoint>>& allKeypoints);
-		// With mask : JeenQ Lee
+		// With mask
 		void ComputeKeyPointsOctTree(std::vector<std::vector<cv::KeyPoint> >& allKeypoints, std::vector<cv::Mat> masks);
 
 		std::vector<cv::KeyPoint> DistributeOctTree(const std::vector<cv::KeyPoint>& vToDistributeKeys, const int& minX,

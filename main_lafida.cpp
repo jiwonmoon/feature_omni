@@ -44,7 +44,7 @@ int main()
 
 
 	//0: ORB, 1:BRISK, 2:AKAZE 3:ORB_EX
-	F_test::System F_system(F_test::System::OMNI, F_test::System::ORB_EX, settingFilePath,img_set.size(), 1000);
+	F_test::System F_system(F_test::System::OMNI, F_test::System::ORB_EX, settingFilePath,img_set.size(), 100);
 
 
 	//Make cube img_set

@@ -269,7 +269,10 @@ void CamModelGeneral::CubemapToFisheye(double& uf, double& vf, const double& up,
 	uf = -1; vf = -1;
 	eFace face = FaceInCubemap<float>(i, j);
 	if (face == UNKNOWN_FACE)
+	{
+		//std::cout << "unkonw face" << std::endl;
 		return;
+	}
 
 	double x, y, z = 1.0;
 	i = i - static_cast<int>(i / mWCubeFace)* mWCubeFace; j = j - static_cast<int>(j / mHCubeFace)* mHCubeFace;

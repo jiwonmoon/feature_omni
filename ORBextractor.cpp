@@ -63,6 +63,8 @@
 #include "ORBextractor.h"
 #include "CamModelGeneral.h"
 
+#define DEBUGs
+
 using namespace cv;
 using namespace std;
 
@@ -103,22 +105,32 @@ namespace F_test
 	}
 
 	const float factorPI = (float)(CV_PI / 180.f);
-	static void computeOrbDescriptor(const KeyPoint& kpt,
-		const Mat& img, const Mat& cube_img, const Point* pattern,
-		uchar* desc)
+	static void computeOrbDescriptor(const KeyPoint& kpt, const Point2f& kpt_C, const Mat& img, const Mat& cube_img, const Point* pattern, uchar* desc)
 	{
-		/// p = F2C(u) <- 3fps낮춤
-		float cubeX, cubeY;
-		CamModelGeneral::GetCamera()->FisheyeToCubemap((kpt.pt.x), (kpt.pt.y), cubeX, cubeY); //fish2cube(fish -> cube)
 
-		float fAngleRad = kpt.angle * (float)CV_PI / 180.f;
+		float fAngleRad = (float)kpt.angle * factorPI;
 		cv::Point2f orientF(cos(fAngleRad), sin(fAngleRad));
 
 		float orientX, orientY;
 		CamModelGeneral::GetCamera()->FisheyeToCubemap(kpt.pt.x + orientF.x, kpt.pt.y + orientF.y, orientX, orientY);
-		cv::Point2f orientP(orientX - cubeX, orientX - cubeY);
-		orientP /= norm(orientP);
+		cv::Point2f orientP(orientX - kpt_C.x, orientY - kpt_C.y);
+		//orientP /= norm(orientP);
 		float a = orientP.x, b = orientP.y;
+
+#ifdef DEBUG
+		//float CX, CY;
+		//CamModelGeneral::GetCamera()->FisheyeToCubemap(593, 66, CX, CY);
+
+		//double testX, testY;
+		//CamModelGeneral::GetCamera()->CubemapToFisheye(testX, testY, CX, CY);//cube2fish(fish <- cube)
+
+		//cout << "!!origin: " << CX << "  ,  " << CY << endl;
+		//cout << "!!!warped: " << testX << "  ,  " << testY << endl;
+		//cout << "orient: " << orientP.x << "  ,  " << orientP.y << endl;
+
+#endif // DEBUG
+
+
 
 		for (int i = 0; i < 32; ++i, pattern += 16)
 		{
@@ -130,12 +142,30 @@ namespace F_test
 			{
 				idx = j * 2;
 				double fishX, fishY;
-				CamModelGeneral::GetCamera()->CubemapToFisheye(fishX, fishY, static_cast<double>(cubeX + (pattern[idx].x * a - pattern[idx].y * b)), static_cast<double>(cubeY + (pattern[idx].x * b + pattern[idx].y * a)));//cube2fish(fish <- cube)
+				CamModelGeneral::GetCamera()->CubemapToFisheye(fishX, fishY, static_cast<double>(kpt_C.x + (pattern[idx].x * a - pattern[idx].y * b)), static_cast<double>(kpt_C.y + (pattern[idx].x * b + pattern[idx].y * a)));//cube2fish(fish <- cube)
 				t0 = img.at<uchar>(fishY, fishX);
 
+#ifdef DEBUG
+				if (fishY == -1 || fishX == -1)
+				{
+					cout << "origin: " << kpt.pt.x << "  ,  " << kpt.pt.y << "\torient: " << kpt.pt.x + orientF.x << "   ,   " << kpt.pt.y + orientF.y << endl;
+					cout << "warped: " << kpt_C.x << "  ,  " << kpt_C.y << "\torient: " << orientX << "   ,   " << orientY << endl;
+					cout << kpt_C.x + (pattern[idx].x * a - pattern[idx].y * b) << "  " << kpt_C.y + (pattern[idx].x * b + pattern[idx].y * a) << "(in: " << img.cols << " , " << img.rows << ")"<< endl;
+					//cout << " => " << 
+				}
+#endif // DEBUG
+
+
 				idx = j * 2 + 1;
-				CamModelGeneral::GetCamera()->CubemapToFisheye(fishX, fishY, static_cast<double>(cubeX + (pattern[idx].x * a - pattern[idx].y * b)), static_cast<double>(cubeY + (pattern[idx].x * b + pattern[idx].y * a)));//cube2fish(fish <- cube)
+				CamModelGeneral::GetCamera()->CubemapToFisheye(fishX, fishY, static_cast<double>(kpt_C.x + (pattern[idx].x * a - pattern[idx].y * b)), static_cast<double>(kpt_C.y + (pattern[idx].x * b + pattern[idx].y * a)));//cube2fish(fish <- cube)
 				t1 = img.at<uchar>(fishY, fishX);
+
+#ifdef DEBUG
+				if (fishY == -1 || fishX == -1)
+				{
+					//cout << kpt.pt.x << "  " << kpt.pt.y << "in " << img.cols << " , " << img.rows << endl;
+				}
+#endif // DEBUG
 
 				if (j == 0) {
 					val = t0 < t1;
@@ -145,65 +175,10 @@ namespace F_test
 				}
 			}
 
+
 			desc[i] = (uchar)val;
 		}
 
-//		cv::Mat orientF_ = (cv::Mat_<double>(3, 1) << kpt.pt.x + orientF.x, kpt.pt.y + orientF.y, 1.0);
-//		///patch[p] <- 이 센터 구하는 과정을 없앨 수 있지 않을까?
-//		const uchar* center = &cube_img.at<uchar>(cvRound(cubeY), cvRound(cubeX));
-//		const int step = (int)img.step;
-//
-//		#define GET_VALUE(idx)                                               \
-//			center[cvRound(pattern[idx].x * b + pattern[idx].y * a) * step + \
-//				cvRound(pattern[idx].x * a - pattern[idx].y * b)]
-//
-//
-//
-//
-//
-////		const uchar* center = &img.at<uchar>(cvRound(kpt.pt.y), cvRound(kpt.pt.x));
-////		const int step = (int)img.step;
-////
-////#define GET_VALUE(idx)                                               \
-////    center[cvRound(pattern[idx].x * b + pattern[idx].y * a) * step + \
-////           cvRound(pattern[idx].x * a - pattern[idx].y * b)]
-//
-//
-//
-//
-//		//한 col(8<-16개 패턴에서 비교)씩 32개의 row채워 8*32개의 bit만듬
-//		for (int i = 0; i < 32; ++i, pattern += 16)
-//		{
-//			int t0, t1, val;
-//			t0 = GET_VALUE(0);
-//			t1 = GET_VALUE(1);
-//			val = t0 < t1;
-//			t0 = GET_VALUE(2);
-//			t1 = GET_VALUE(3);
-//			val |= (t0 < t1) << 1;
-//			t0 = GET_VALUE(4);
-//			t1 = GET_VALUE(5);
-//			val |= (t0 < t1) << 2;
-//			t0 = GET_VALUE(6);
-//			t1 = GET_VALUE(7);
-//			val |= (t0 < t1) << 3;
-//			t0 = GET_VALUE(8);
-//			t1 = GET_VALUE(9);
-//			val |= (t0 < t1) << 4;
-//			t0 = GET_VALUE(10);
-//			t1 = GET_VALUE(11);
-//			val |= (t0 < t1) << 5;
-//			t0 = GET_VALUE(12);
-//			t1 = GET_VALUE(13);
-//			val |= (t0 < t1) << 6;
-//			t0 = GET_VALUE(14);
-//			t1 = GET_VALUE(15);
-//			val |= (t0 < t1) << 7;
-//
-//			desc[i] = (uchar)val;
-//		}
-//
-//#undef GET_VALUE
 	}
 
 	static int bit_pattern_31_[256 * 4] =
@@ -1176,17 +1151,24 @@ namespace F_test
 			computeOrientation(mvImagePyramid[level], allKeypoints[level], umax);
 	}
 
-	static void computeDescriptors(const Mat& image, const Mat& cube_image, vector<KeyPoint>& keypoints, Mat& descriptors,
+	static void computeDescriptors(const Mat& image, const Mat& cube_image, vector<KeyPoint>& keypoints, vector<Point2f> keypoints_C, Mat& descriptors,
 		const vector<Point>& pattern)
 	{
 		descriptors = Mat::zeros((int)keypoints.size(), 32, CV_8UC1);
 
 		for (size_t i = 0; i < keypoints.size(); i++)
 		{
-			///keypoint culling	
-			
-			computeOrbDescriptor(keypoints[i], image, cube_image, &pattern[0], descriptors.ptr((int)i));
+			computeOrbDescriptor(keypoints[i], keypoints_C[i], image, cube_image, &pattern[0], descriptors.ptr((int)i));
 		}
+	}
+
+	void ORBextractor::detect(InputArray _image, vector<KeyPoint>& _keypoints, InputArray _mask)
+	{
+
+	}
+	void ORBextractor::compute(InputArray _image, vector<KeyPoint>& _keypoints, OutputArray _descriptors)
+	{
+
 	}
 
 	void ORBextractor::operator()(InputArray _image, InputArray _mask, InputArray _cube_mask, vector<KeyPoint>& _keypoints,
@@ -1201,12 +1183,18 @@ namespace F_test
 		Mat mask = _mask.getMat();
 		assert(mask.type() == CV_8UC1);
 
-		int width = CamModelGeneral::GetCamera()->GetCubeFaceWidth(), height = CamModelGeneral::GetCamera()->GetCubeFaceHeight();
-		cv::Mat cubemapImg(height * 3, width * 3, CV_8U, cv::Scalar::all(0));
+		Mat cube_mask = _cube_mask.getMat();
+		assert(mask.type() == CV_8UC1);
+
+		int width = CamModelGeneral::GetCamera()->GetCubeFaceWidth() * 3, height = CamModelGeneral::GetCamera()->GetCubeFaceHeight() * 3;
+		
+		cv::Mat cubemapImg(height, width, CV_8U, cv::Scalar::all(0));
 
 		std::vector<cv::Mat> masks;
 		vector<vector<KeyPoint>> allKeypoints;
 
+		//ComputePyramid(image);
+		//ComputeKeyPointsOctTree(allKeypoints);
 
 		if (mask.empty())
 		{
@@ -1228,6 +1216,7 @@ namespace F_test
 			_descriptors.release();
 		else
 		{
+			//_descriptors.clear();
 			_descriptors.create(nkeypoints, 32, CV_8U);
 			descriptors = _descriptors.getMat();
 		}
@@ -1235,9 +1224,11 @@ namespace F_test
 		_keypoints.clear();
 		_keypoints.reserve(nkeypoints);
 
+
 		int offset = 0;
 		for (int level = 0; level < nlevels; ++level)
 		{
+			cout << "vel" << level << endl;
 			vector<KeyPoint>& keypoints = allKeypoints[level];
 			int nkeypointsLevel = (int)keypoints.size();
 
@@ -1245,12 +1236,68 @@ namespace F_test
 				continue;
 
 
+			//save corrected point positions
+			vector<Point2f> keypoints_new;
+			keypoints_new.reserve(keypoints.size());			
+			vector<Point2f> keypoints_new_C;//pyramid
+			keypoints_new_C.reserve(keypoints.size());
+
+#ifdef DEBUG
+			cout << "level:: " << level << " befor : " << keypoints.size() << endl;
+
+			Mat Lable_img = mvImagePyramid[level].clone();
+			drawKeypoints(Lable_img, keypoints, Lable_img);
+			imshow("ttttt", Lable_img);	cv::moveWindow("ttttt", 10, 50);
+#endif
+
+			// cull points with mask and rm those in margin
+			keypoints.erase(std::remove_if(keypoints.begin(), keypoints.end(), [&](const cv::KeyPoint& keypoint)->bool {
+				float scale = mvScaleFactor[level]; //getScale(level, firstLevel, scaleFactor);
+				const cv::Point2f pt = keypoint.pt * scale;//origin scale
+
+				//fish2cube(fish -> cube)
+				cv::Point2f pt_C;//pyramid scale
+				CamModelGeneral::GetCamera()->FisheyeToCubemap((keypoint.pt.x), (keypoint.pt.y), pt_C.x, pt_C.y);
+				cv::Point2f pt_C_scale = pt_C * scale;//restore origin sclae
+
+				CamModelGeneral::eFace face = CamModelGeneral::GetCamera()->FaceInCubemap(pt_C_scale);//originsclae
+				if (face == CamModelGeneral::UNKNOWN_FACE)
+				{
+					//cout << "1: " << pt.x << "  ,  " << pt.y << "(in: " << image.cols << "  ,  " << image.rows << ")" << endl;
+					//cout << "2: " << pt_C_scale.x << "  ,  " << pt_C_scale.y << "(in: " << width << "  ,  " << height << ")" << endl;
+					return true;
+
+				}
+				if (pt_C_scale.x < 0 || (int)(pt_C_scale.x + 0.5f) >= width || pt_C_scale.y < 0 || (int)(pt_C_scale.y + 0.5f) >= height)
+				{
+					cout << "2" << endl;
+					return true;
+				}
+				if (cube_mask.at<uchar>((int)(pt_C_scale.y + 0.5f), (int)(pt_C_scale.x + 0.5f)) == 0)
+				{
+					cout << "3" << endl;
+					return true;
+				}
+				else
+				{
+					keypoints_new.push_back(pt);//origin scale
+					keypoints_new_C.push_back(pt_C);//pyramid scale
+					return false;
+				}
+				}
+			), keypoints.end());
+			assert(keypoints.size() == keypoints_new.size() && "ORBExtractor: keypoints should share the same size as keypooints_new");
 
 
 
+#ifdef DEBUG
+			cout << "after : " << keypoints.size() << endl;
 
-
-
+			Mat Lable_img_after = mvImagePyramid[level].clone();
+			drawKeypoints(Lable_img_after, keypoints, Lable_img_after);
+			imshow("ttttt_after", Lable_img_after); cv::moveWindow("ttttt_after", 10 + Lable_img_after.cols, 50);
+			waitKey(0);
+#endif
 
 
 
@@ -1261,24 +1308,27 @@ namespace F_test
 			GaussianBlur(workingMat, workingMat, Size(7, 7), 2, 2, BORDER_REFLECT_101);
 
 
+
 			// Compute the descriptors
+			nkeypointsLevel = keypoints.size();
 			Mat desc = descriptors.rowRange(offset, offset + nkeypointsLevel);
-			computeDescriptors(workingMat, cubemapImg, keypoints, desc, pattern);
+			computeDescriptors(workingMat, cubemapImg, keypoints, keypoints_new_C, desc, pattern);
 
 			offset += nkeypointsLevel;
 
-			// Scale keypoint coordinates
-			if (level != 0)
-			{
-				float scale = mvScaleFactor[level]; //getScale(level, firstLevel, scaleFactor);
-				for (vector<KeyPoint>::iterator keypoint = keypoints.begin(),
-					keypointEnd = keypoints.end();
-					keypoint != keypointEnd; ++keypoint)
-					keypoint->pt *= scale;
-			}
+
+			// Update keypoint coordinates
+			for (int i = 0, iend = keypoints.size(); i < iend; ++i)
+				keypoints[i].pt = keypoints_new[i];
+
 			// And add the keypoints to the output
 			_keypoints.insert(_keypoints.end(), keypoints.begin(), keypoints.end());
 		}
+		cout << "after : " << _keypoints.size() << endl;
+
+
+		descriptors.resize(_keypoints.size());
+		descriptors.copyTo(_descriptors);
 	}
 
 	void ORBextractor::ComputePyramid(cv::Mat image)

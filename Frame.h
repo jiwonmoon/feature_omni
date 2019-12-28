@@ -26,6 +26,7 @@ namespace F_test
 		void Extract_BRISK(Mat img, Mat mask);///
 		void Extract_AKAZE(Mat img, Mat mask);///
 		void Extract_ORB_EX(Mat img, Mat mask, const Mat cube_mask);
+		void Extract_ORB_EX_1(Mat img, Mat mask, const Mat cube_mask);
 
 		void CvtFisheyeToCubeMap_reverseQuery(cv::Mat& cubemapImg, const cv::Mat& fisheyeImg);
 

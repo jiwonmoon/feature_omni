@@ -19,32 +19,34 @@ using namespace std;
 using namespace cv;
 
 
-vector<Mat> read_lafida_imgs(int start_flag, int end_img_cnt);
-
+vector<Mat> read_cube_imgs(int start_flag, int end_img_cnt);
 
 /* main */
 int main()
 {
-	int start_F_idx = 30, end_F_idx = 48;
+	int start_F_idx = 388, end_F_idx = 440;
 	//cout << "SCAN START/END FRAME Idx: ";
 	//cin >> start_F_idx;
 	//cin >> end_F_idx;
-	
+
 	/* read data */
-	vector<Mat> img_set = read_lafida_imgs(start_F_idx, end_F_idx);	///if 0 <- get all the every img set
-	Mat mask = imread("../../dataset/mask/lafida_mask.png", IMREAD_GRAYSCALE);
-	Mat cube_mask = imread("../../dataset/cube_mask/gray_lafida_cubemap_mask_650.png", IMREAD_GRAYSCALE);
+	vector<Mat> img_set = read_cube_imgs(start_F_idx, end_F_idx);	///if 0 <- get all the every img set
+
+	Mat mask = imread("../../dataset/mask/loop2_front_mask.png", IMREAD_GRAYSCALE);
+	Mat cube_mask = imread("../../dataset/cube_mask/gray_cubemap_front_mask_650.png", IMREAD_GRAYSCALE);
 	if (cube_mask.empty() || mask.empty())
 	{
 		std::cout << "fail to read the mask: " << std::endl;
 		exit(0);
 	}
 
-	std::string settingFilePath("../../Config/lafida_cam0_params.yaml");
-
+	std::string settingFilePath("../../Config/front_cam_params.yaml");
 
 	//0: ORB, 1:BRISK, 2:AKAZE 3:ORB_EX
-	F_test::System F_system(F_test::System::OMNI, F_test::System::ORB_EX, settingFilePath,img_set.size(), 3000);
+	F_test::System F_system(F_test::System::OMNI, F_test::System::ORB_EX, settingFilePath, img_set.size(), 3000);
+
+
+
 
 	F_system.TwoViewTest(img_set, mask, cube_mask, 5, 33);//(img term), (20)
 	F_system.print_RESULT();
@@ -59,30 +61,24 @@ int main()
 
 
 
-vector<Mat> read_lafida_imgs(int start_flag, int end_img_cnt)
+vector<Mat> read_cube_imgs(int start_flag, int end_img_cnt)
 {
-	std::string fisheyeImgPath = "../../dataset/outdoor_rotation/imgs/cam0/";
-	std::ifstream fin("../../dataset/outdoor_rotation/images_and_timestamps.txt");
+	std::string fisheyeImgPath = "../../dataset/loop2_front/";
+	std::ifstream fin("../../dataset/loop2_front/front_images.lst");
 
 	// Retrieve paths to images
 	std::vector<std::string> fisheyeImgNames;
 	std::vector<double> vTimestamps;
 	std::string line;
-
 	while (std::getline(fin, line))
 	{
-		std::stringstream ss(line);
+		fisheyeImgNames.push_back(line);
+		size_t p = line.find_last_of("_");
+		std::stringstream ss(line.substr(0, p));
 		double ts;
 		ss >> ts;
-		std::string name;
-		ss >> name;
-		size_t p = name.find_last_of("/");
-		name = name.substr(p + 1, name.length());
-
 		vTimestamps.push_back(ts);
-		fisheyeImgNames.push_back(name);
 	}
-
 
 	// Main loop
 	vector<Mat> img_set;

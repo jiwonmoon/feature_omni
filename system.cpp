@@ -6,7 +6,7 @@ namespace F_test
 	/* main Feature test system */
 	System::System(const S_type sensor_type, const F_type feature_type, const string& strSettingsFile, int max_ImgNum, int _nFeatures)
 	{
-		cout << "[SYSTEM:: Feature TEST, Use of (" << feature_type << ") type feature(0: ORB, 1: BRISK, 2: AKAZE, 3: ORB_EX), 12/11 version]" << endl << endl;
+		cout << "[SYSTEM:: Feature TEST, Use of (" << feature_type << ") type feature(0: ORB, 1: BRISK, 2: AKAZE, 3: OMNI_ORB), 12/28 version]" << endl << endl;
 
 
 		//Check settings file
@@ -65,18 +65,28 @@ namespace F_test
 
 	void System::TwoViewTest(const vector<Mat> img_vec, const Mat mask, const Mat cube_mask, int img_term, int delay)
 	{
+		int matcher_type = 0;
+		cout << "Seclect Matcher type(1:brute force, 2:knn search): ";
+		cin >> matcher_type;
 
 		for (int ni = 0; ni < (img_vec.size() - img_term); ni++)
 		{
-			compare_->compare2img(img_vec, ni, ni + img_term, mask, cube_mask, typeOffeature);
+			compare_->compare2img(img_vec, ni, ni + img_term, mask, cube_mask, typeOffeature, matcher_type);
 			waitKey(delay);
 		}
 
 	}
 
+	void System::direction_Test(const vector<Mat> img_vec, const Mat mask, const Mat cube_mask, int delay)
+	{
 
 
+			compare_->translate_test(img_vec, mask, cube_mask);
+			waitKey(delay);
 
+	}
+
+	
 	//convert fisheye image to cubemap
 	void System::CvtFisheyeToCubeMap_reverseQuery(cv::Mat& cubemapImg, const cv::Mat& fisheyeImg)
 	{
@@ -104,6 +114,54 @@ namespace F_test
 	}
 
 
+	//convert fisheye to cubemap with pCamModel->FisheyeToCubemap
+	void System::CvtFisheyeToCubeMap(cv::Mat& cubemapImg, const cv::Mat& fisheyeImg)
+	{
+		cubemapImg.setTo(cv::Scalar::all(0));
+		int Iw = CamModelGeneral::GetCamera()->GetFisheyeWidth(), Ih = CamModelGeneral::GetCamera()->GetFisheyeHeight();
+
+		for (int i = 0; i < Iw; ++i)
+		{
+			for (int j = 0; j < Ih; ++j)
+			{
+				float ui, vi;
+				uchar intensity = fisheyeImg.at<uchar>(j, i);
+				CamModelGeneral::eFace face = CamModelGeneral::GetCamera()->FisheyeToCubemap(static_cast<float>(i), static_cast<float>(j), ui, vi);
+				int u = cvRound(ui), v = cvRound(vi);
+				if (face == CamModelGeneral::UNKNOWN_FACE || u < 0 || v < 0)
+					continue;
+				cubemapImg.at<uchar>(v, u) = intensity;
+			}
+		}
+		cv::imshow("cubemap_from_fisheye", cubemapImg);
+	}
+
+
+
+	//convert fisheye image to cubemap
+	void System::CvtCubeMapToFisheye(const cv::Mat& PImg, cv::Mat& fisheyeImg)
+	{
+		//clear rectified image
+		fisheyeImg.setTo(cv::Scalar::all(0));
+		int width = PImg.cols, height = PImg.rows;
+
+		for (int i = 0; i < width; ++i)
+		{
+			for (int j = 0; j < height; ++j)
+			{
+				uchar intensity = PImg.at<uchar>(j, i);
+
+				double fishX, fishY;
+				CamModelGeneral::GetCamera()->CubemapToFisheye_Front(fishX, fishY, static_cast<double>(i), static_cast<double>(j));//cube2fish(fish <- cube)
+
+
+				int u = cvRound(fishX), v = cvRound(fishY);
+				fisheyeImg.at<uchar>(v, u) = intensity;
+			}
+		}
+
+	}
+
 
 	void System::CreateUndistortRectifyMap()
 	{
@@ -128,46 +186,6 @@ namespace F_test
 				mMap2.at<float>(y, x) = static_cast<float>(v);
 			}
 		}
-	}
-
-
-	//convert fisheye image to cubemap
-	void System::CvtFisheyeToCubeMap_reverseQuery_withInterpolation(cv::Mat& cubemapImg, const cv::Mat& fisheyeImg, int interpolation, int borderType, const cv::Scalar& borderValue)
-	{
-
-		const int offset = 0;
-		const int width = CamModelGeneral::GetCamera()->GetCubeFaceWidth(), height = CamModelGeneral::GetCamera()->GetCubeFaceHeight();
-
-		//front
-		cv::Mat cubemapImg_front = cubemapImg.rowRange(height, 2 * height).colRange(width, 2 * width);
-		cv::Mat mMap1_front = mMap1.rowRange(height, 2 * height).colRange(width, 2 * width);
-		cv::Mat mMap2_front = mMap2.rowRange(height, 2 * height).colRange(width, 2 * width);
-		cv::remap(fisheyeImg, cubemapImg_front, mMap1_front, mMap2_front, interpolation, borderType, borderValue);
-
-		//left
-		cv::Mat cubemapImg_left = cubemapImg.rowRange(height, 2 * height).colRange(0 + offset, width + offset);
-		cv::Mat mMap1_left = mMap1.rowRange(height, 2 * height).colRange(0 + offset, width + offset);
-		cv::Mat mMap2_left = mMap2.rowRange(height, 2 * height).colRange(0 + offset, width + offset);
-		cv::remap(fisheyeImg, cubemapImg_left, mMap1_left, mMap2_left, interpolation, borderType, borderValue);
-
-		//right
-		cv::Mat cubemapImg_right = cubemapImg.rowRange(height, 2 * height).colRange(2 * width - offset, 3 * width - offset);
-		cv::Mat mMap1_right = mMap1.rowRange(height, 2 * height).colRange(2 * width - offset, 3 * width - offset);
-		cv::Mat mMap2_right = mMap2.rowRange(height, 2 * height).colRange(2 * width - offset, 3 * width - offset);
-		cv::remap(fisheyeImg, cubemapImg_right, mMap1_right, mMap2_right, interpolation, borderType, borderValue);
-
-		//upper
-		cv::Mat cubemapImg_upper = cubemapImg.rowRange(0 + offset, height + offset).colRange(width, 2 * width);
-		cv::Mat mMap1_upper = mMap1.rowRange(0 + offset, height + offset).colRange(width, 2 * width);
-		cv::Mat mMap2_upper = mMap2.rowRange(0 + offset, height + offset).colRange(width, 2 * width);
-		cv::remap(fisheyeImg, cubemapImg_upper, mMap1_upper, mMap2_upper, interpolation, borderType, borderValue);
-
-		//lower
-		cv::Mat cubemapImg_lower = cubemapImg.rowRange(2 * height - offset, 3 * height - offset).colRange(width, 2 * width);
-		cv::Mat mMap1_lower = mMap1.rowRange(2 * height - offset, 3 * height - offset).colRange(width, 2 * width);
-		cv::Mat mMap2_lower = mMap2.rowRange(2 * height - offset, 3 * height - offset).colRange(width, 2 * width);
-		cv::remap(fisheyeImg, cubemapImg_lower, mMap1_lower, mMap2_lower, interpolation, borderType, borderValue);
-		//interpolation with cv::remap for each face
 	}
 
 

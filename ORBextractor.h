@@ -57,11 +57,13 @@ namespace F_test
 
 		// Compute the ORB features and descriptors on an image.
 		// ORB are dispersed on the image using an octree.
-		void operator()(cv::InputArray image, cv::InputArray mask, cv::InputArray cube_mask,
+		void operator()(cv::InputArray image, cv::InputArray mask,
 			std::vector<cv::KeyPoint>& keypoints,
 			cv::OutputArray descriptors);
 
-		void detect(cv::InputArray image, std::vector<cv::KeyPoint>& keypoints, cv::InputArray mask);
+		void detect(cv::InputArray image, cv::InputArray mask, cv::InputArray cube_mask,
+			std::vector<cv::KeyPoint>& keypoints,
+			cv::OutputArray descriptors);
 		void compute(cv::InputArray image, std::vector<cv::KeyPoint>& keypoints, cv::OutputArray descriptors);
 
 		int inline GetLevels()

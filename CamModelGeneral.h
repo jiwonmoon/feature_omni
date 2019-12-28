@@ -200,6 +200,7 @@ public:
     eFace FisheyeToCubemap(const float &uf, const float &vf, float &up, float &vp);
 
     void CubemapToFisheye(double &uf, double &vf, const double &up, const double &vp);
+	void CubemapToFisheye_Front(double& uf, double& vf, const double& up, const double& vp);
 
     template<class T>
     void GetPosInFace(T &u, T &v, const T &uCubemap, const T &vCubemap)

@@ -36,6 +36,7 @@ namespace F_test
 		System(const S_type sensor_type, const F_type feature_type, const string& strSettingsFile, int max_ImgNum, int _nFeatures);
 
 		void TwoViewTest(const vector<Mat> img_vec, const Mat mask, const Mat cube_mask, int img_term, int delay);
+		void direction_Test(const vector<Mat> img_vec, const Mat mask, const Mat cube_mask, int delay);
 
 
 		//convert fisheye image to cubemap
@@ -43,10 +44,10 @@ namespace F_test
 		//creating mapping
 		void CreateUndistortRectifyMap();
 		//convert fisheye image to cubemap
-		void CvtFisheyeToCubeMap_reverseQuery_withInterpolation(cv::Mat& cubemapImg, const cv::Mat& fisheyeImg,
-			int interpolation, int borderType = cv::BORDER_CONSTANT, const cv::Scalar& borderValue = cv::Scalar());
-		
-		
+		void CvtFisheyeToCubeMap(cv::Mat& cubemapImg, const cv::Mat& fisheyeImg);
+
+		//convert fisheye image to cubemap
+		void CvtCubeMapToFisheye(const cv::Mat& cubemapImg, cv::Mat& fisheyeImg);
 		
 		void print_RESULT();
 

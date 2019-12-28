@@ -292,6 +292,29 @@ void CamModelGeneral::CubemapToFisheye(double& uf, double& vf, const double& up,
 	}
 }
 
+void CamModelGeneral::CubemapToFisheye_Front(double& uf, double& vf, const double& up, const double& vp)
+{
+	//cvt (up, vp) to (i, j)
+	float i = up, j = vp;
+	uf = -1; vf = -1;
+
+	double x, y, z = 1.0;
+
+	x = (i - cx) * z / fx;
+	y = (j - cy) * z / fy;
+	cv::Vec3d rigPt;
+	double& _x = rigPt(0), & _y = rigPt(1), & _z = rigPt(2);
+	_x = x; _y = y; _z = z;
+
+	WorldToImg(_x, _y, _z, uf, vf);
+	if (uf < 0 || uf >= mWFisheye || vf < 0 || vf >= mHFisheye)
+	{
+		uf = -1;
+		vf = -1;
+	}
+}
+
+
 float CamModelGeneral::GetVectorSigma(const cv::KeyPoint& key, const float& sigmaInPixel)
 {
 	const float radius = GetEpipolarRadius(key);
